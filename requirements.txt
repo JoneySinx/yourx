@@ -1,0 +1,16 @@
+# Telegram Client (Fast & Modern)
+hydrogram==1.1.5
+tgcrypto==1.2.5
+
+# Database (Async MongoDB)
+motor==3.3.2
+dnspython==2.4.2
+
+# Web Server & Utilities
+aiohttp==3.9.1
+uvloop==0.19.0; sys_platform != 'win32'
+python-dotenv==1.0.0
+
+# Smart Features (Search & AI)
+rapidfuzz==3.5.2   # For Smart Fuzzy Search
+groq==0.3.0        # For AI Welcome (Optional)
