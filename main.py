@@ -48,9 +48,16 @@ class Bot(Client):
         logger.info("❌ Bot Stopped.")
 
 if __name__ == "__main__":
-    # --- FIX: Event Loop Policy Set करें ---
+    # --- FINAL FIX IS HERE ---
+    # 1. uvloop पालिसी सेट करें
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-    loop = asyncio.get_event_loop()
     
+    # 2. नया लूप खुद बनाएं (get_event_loop हटा दिया)
+    loop = asyncio.new_event_loop()
+    
+    # 3. इस लूप को सेट करें
+    asyncio.set_event_loop(loop)
+    
+    # 4. अब बोट चलाएं
     bot = Bot()
     loop.run_until_complete(bot.start())
