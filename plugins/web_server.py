@@ -1,4 +1,3 @@
-import time
 import base64
 import re
 from aiohttp import web
@@ -21,9 +20,8 @@ async def download_handler(request):
 
 async def media_streamer(request, download=False):
     secure_hash = request.match_info['hash']
-    
     try:
-        # Hash Decode Fix
+        # Padding Fix
         secure_hash = secure_hash + "=" * (-len(secure_hash) % 4)
         msg_id = int(base64.urlsafe_b64decode(secure_hash).decode("ascii"))
     except:
@@ -32,29 +30,27 @@ async def media_streamer(request, download=False):
     bot: Client = request.app['bot']
     try:
         message = await bot.get_messages(Config.BIN_CHANNEL, msg_id)
-        if not message or not message.media:
-            return web.Response(text="File Missing", status=404)
-    except:
-        return web.Response(text="File Error", status=404)
+        if not message or not message.media: return web.Response(text="File Missing", status=404)
+    except: return web.Response(text="File Error", status=404)
 
     file_media = getattr(message, message.media.value)
+    
+    # --- FIX: NAME CLEANING ---
     original_name = file_media.file_name or "Video.mp4"
-    
-    # FIX: फाइल नाम से स्पेशल कैरेक्टर (|, :, <, >) हटाना जरूरी है
-    file_name = re.sub(r'[\\/*?:"<>|]', "", original_name)
-    
+    # सिर्फ खतरनाक सिंबल हटाओ, बाकी रहने दो
+    safe_name = re.sub(r'[\\/*?:"<>|]', "", original_name)
+    if not safe_name: safe_name = "Video.mp4" # अगर सब हट गया तो डिफ़ॉल्ट नाम
+
     file_size = file_media.file_size
     mime_type = getattr(file_media, "mime_type", "video/mp4")
 
-    # Headers for Streaming
     headers = {
-        "Content-Disposition": f'inline; filename="{file_name}"',
+        "Content-Disposition": f'{"attachment" if download else "inline"}; filename="{safe_name}"',
         "Content-Type": mime_type,
         "Accept-Ranges": "bytes",
         "Content-Length": str(file_size)
     }
 
-    # Range Handling (Seeking)
     offset = 0
     length = file_size
     status_code = 200
@@ -65,15 +61,12 @@ async def media_streamer(request, download=False):
             start_str, end_str = range_header.replace("bytes=", "").split("-")
             start = int(start_str)
             end = int(end_str) if end_str else file_size - 1
-            
             offset = start
             length = end - start + 1
             status_code = 206
-            
             headers["Content-Range"] = f"bytes {start}-{end}/{file_size}"
             headers["Content-Length"] = str(length)
-        except ValueError:
-            pass
+        except: pass
 
     response = web.StreamResponse(status=status_code, headers=headers)
     await response.prepare(request)
@@ -81,7 +74,5 @@ async def media_streamer(request, download=False):
     try:
         async for chunk in bot.stream_media(message, offset=offset, limit=length):
             await response.write(chunk)
-    except:
-        pass
-
+    except: pass
     return response
