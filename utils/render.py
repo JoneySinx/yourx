@@ -1,0 +1,38 @@
+# टाइम और साइज को सुंदर दिखाने के लिए
+
+def humanbytes(size):
+    """Bytes को MB/GB में बदलता है"""
+    if not size:
+        return ""
+    power = 2**10
+    n = 0
+    dic_powerN = {0: ' ', 1: 'Ki', 2: 'Mi', 3: 'Gi', 4: 'Ti'}
+    while size > power:
+        size /= power
+        n += 1
+    return str(round(size, 2)) + " " + dic_powerN[n] + 'B'
+
+def get_time(seconds):
+    """Seconds को Min/Hour में बदलता है"""
+    count = 0
+    ping_time = ""
+    time_list = []
+    time_suffix_list = ["s", "m", "h", "days"]
+
+    while count < 4:
+        count += 1
+        remainder, result = divmod(seconds, 60) if count < 3 else divmod(seconds, 24)
+        if seconds == 0 and remainder == 0:
+            break
+        time_list.append(int(result))
+        seconds = int(remainder)
+
+    for x in range(len(time_list)):
+        time_list[x] = str(time_list[x]) + time_suffix_list[x]
+    if len(time_list) == 4:
+        ping_time += time_list.pop() + ", "
+
+    time_list.reverse()
+    ping_time += ":".join(time_list)
+
+    return ping_time
