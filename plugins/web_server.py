@@ -1,17 +1,15 @@
 import time
-import math
-import logging
 import base64
+import re
 from aiohttp import web
-from hydrogram import Client, errors
+from hydrogram import Client
 from config import Config
-from database import db
 
 routes = web.RouteTableDef()
 
 @routes.get("/", allow_head=True)
 async def root_route_handler(request):
-    return web.json_response({"status": "running", "maintainer": "PremiumBot"})
+    return web.json_response({"status": "running"})
 
 @routes.get("/watch/{hash}")
 async def stream_handler(request):
@@ -24,37 +22,39 @@ async def download_handler(request):
 async def media_streamer(request, download=False):
     secure_hash = request.match_info['hash']
     
-    # 1. Hash Decode Fix (Padding Error Handle)
     try:
+        # Hash Decode Fix
         secure_hash = secure_hash + "=" * (-len(secure_hash) % 4)
         msg_id = int(base64.urlsafe_b64decode(secure_hash).decode("ascii"))
-    except Exception as e:
-        return web.Response(text=f"Invalid Link Hash: {e}", status=400)
+    except:
+        return web.Response(text="Invalid Link", status=400)
 
-    # 2. Bot Instance Get
     bot: Client = request.app['bot']
-
-    # 3. Get File from BIN Channel
     try:
         message = await bot.get_messages(Config.BIN_CHANNEL, msg_id)
         if not message or not message.media:
-            return web.Response(text="File not found in Bin Channel (Deleted?)", status=404)
-    except Exception as e:
-        return web.Response(text=f"Error fetching file: {e}", status=404)
+            return web.Response(text="File Missing", status=404)
+    except:
+        return web.Response(text="File Error", status=404)
 
-    # 4. File Details
     file_media = getattr(message, message.media.value)
-    file_name = file_media.file_name or "Premium_Video.mp4"
+    original_name = file_media.file_name or "Video.mp4"
+    
+    # FIX: फाइल नाम से स्पेशल कैरेक्टर (|, :, <, >) हटाना जरूरी है
+    file_name = re.sub(r'[\\/*?:"<>|]', "", original_name)
+    
     file_size = file_media.file_size
     mime_type = getattr(file_media, "mime_type", "video/mp4")
 
-    # 5. Range Handling (Important for Video Player Seeking)
+    # Headers for Streaming
     headers = {
-        "Content-Disposition": f'{("attachment" if download else "inline")}; filename="{file_name}"',
+        "Content-Disposition": f'inline; filename="{file_name}"',
         "Content-Type": mime_type,
         "Accept-Ranges": "bytes",
+        "Content-Length": str(file_size)
     }
 
+    # Range Handling (Seeking)
     offset = 0
     length = file_size
     status_code = 200
@@ -64,7 +64,6 @@ async def media_streamer(request, download=False):
         try:
             start_str, end_str = range_header.replace("bytes=", "").split("-")
             start = int(start_str)
-            # अगर end नहीं दिया है तो फाइल का अंत
             end = int(end_str) if end_str else file_size - 1
             
             offset = start
@@ -75,18 +74,14 @@ async def media_streamer(request, download=False):
             headers["Content-Length"] = str(length)
         except ValueError:
             pass
-    else:
-        headers["Content-Length"] = str(file_size)
 
-    # 6. Stream Response
     response = web.StreamResponse(status=status_code, headers=headers)
     await response.prepare(request)
 
     try:
-        # Hydrogram Streaming Generator
         async for chunk in bot.stream_media(message, offset=offset, limit=length):
             await response.write(chunk)
-    except Exception:
+    except:
         pass
 
     return response
