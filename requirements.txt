@@ -2,7 +2,7 @@ hydrogram
 tgcrypto
 motor
 dnspython
-aiohttp
+aiohttp==3.9.5
 python-dotenv
 rapidfuzz
 groq
