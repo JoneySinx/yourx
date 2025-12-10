@@ -6,10 +6,7 @@ from aiohttp import web
 from config import Config
 from plugins.web_server import routes
 
-# 1. UVLOOP Setup (सबसे पहले इसे सेट करें)
-uvloop.install()
-
-# 2. Logging Setup
+# Logging Setup
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -33,7 +30,7 @@ class Bot(Client):
         self.username = me.username
         logger.info(f"✅ Bot Started as @{me.username}")
 
-        # --- WEB SERVER SETUP ---
+        # Web Server Setup
         app = web.Application()
         app.add_routes(routes)
         app['bot'] = self
@@ -44,8 +41,6 @@ class Bot(Client):
         await site.start()
         
         logger.info(f"🚀 Web Server Running on Port {Config.PORT}")
-
-        # बोट को रोके रखने के लिए (Idle Mode)
         await idle()
 
     async def stop(self, *args):
@@ -53,9 +48,9 @@ class Bot(Client):
         logger.info("❌ Bot Stopped.")
 
 if __name__ == "__main__":
-    # 3. Explicit Loop Creation (यह लाइन आपका एरर फिक्स करेगी)
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    # --- FIX: Event Loop Policy Set करें ---
+    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+    loop = asyncio.get_event_loop()
     
     bot = Bot()
     loop.run_until_complete(bot.start())
